@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { VectorStyle, ShadingLevel, GaussianBlurLevel } from '../types';
 
@@ -144,7 +143,7 @@ export const generateVectorImage = async (
   shadingLevel: ShadingLevel,
   outlineDistance: number,
   gaussianBlurLevel: GaussianBlurLevel
-): Promise<string> => {
+): Promise<string[]> => {
   
   const styleInstruction = getStylePrompt(style, shadingLevel, gaussianBlurLevel);
   let prompt: string;
@@ -189,8 +188,7 @@ ${styleInstruction}
 `.trim();
   }
 
-
-  const response = await ai.models.generateContent({
+  const generationConfig = {
     model: 'gemini-2.5-flash-image-preview',
     contents: {
       parts: [
@@ -208,22 +206,48 @@ ${styleInstruction}
     config: {
       responseModalities: [Modality.IMAGE, Modality.TEXT],
     },
-  });
+  };
 
-  const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+  const generationPromises = Array(4).fill(0).map(() => ai.models.generateContent(generationConfig));
+  const results = await Promise.allSettled(generationPromises);
+  
+  const imageDatas: string[] = [];
+  let firstError: Error | null = null;
 
-  if (imagePart?.inlineData) {
-    return imagePart.inlineData.data;
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const response = result.value;
+      const candidates = response.candidates;
+
+      if (candidates && candidates.length > 0) {
+        const candidate = candidates[0];
+        if (candidate.finishReason === 'STOP' || !candidate.finishReason) {
+          const imagePart = candidate.content?.parts?.find(p => p.inlineData);
+          if (imagePart?.inlineData?.data) {
+            imageDatas.push(imagePart.inlineData.data);
+            continue;
+          }
+        }
+        if (!firstError && candidate.finishReason) {
+            firstError = new Error(`생성 실패 원인: ${candidate.finishReason}.`);
+        }
+      }
+      if (!firstError && response.text) {
+          firstError = new Error(response.text);
+      }
+    } else {
+      if (!firstError) {
+          firstError = result.reason instanceof Error ? result.reason : new Error(String(result.reason));
+      }
+    }
+  }
+
+  if (imageDatas.length > 0) {
+    return imageDatas;
   }
   
-  const textReason = response.text;
-  if (textReason) {
-    throw new Error(textReason);
-  }
-
-  const candidate = response.candidates?.[0];
-  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-    throw new Error(`생성 실패 원인: ${candidate.finishReason}.`);
+  if (firstError) {
+      throw firstError;
   }
 
   throw new Error("이미지가 생성되지 않았습니다. 모델이 요청을 거부했을 수 있습니다.");

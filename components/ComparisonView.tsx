@@ -1,15 +1,49 @@
+
 import React, { useState, useRef } from 'react';
 import Loader from './Loader';
 import { UploadIcon } from './icons/UploadIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 
+interface ThumbnailGalleryProps {
+  images: string[];
+  selectedImage: string | null;
+  onSelect: (image: string) => void;
+}
+
+const ThumbnailGallery: React.FC<ThumbnailGalleryProps> = ({ images, selectedImage, onSelect }) => {
+  return (
+    <div className="mt-3 animate-fade-in">
+        <h4 className="text-sm font-semibold text-medium-text mb-2 text-center">생성된 아트웍</h4>
+        <div className="flex justify-center items-center gap-2 p-2 bg-dark-bg rounded-lg">
+            {images.map((img, index) => (
+                <button
+                    key={index}
+                    onClick={() => onSelect(img)}
+                    className={`rounded-md overflow-hidden transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 focus:ring-offset-dark-card ${selectedImage === img ? 'ring-2 ring-brand-blue' : 'ring-2 ring-transparent hover:ring-dark-border'}`}
+                    aria-label={`생성된 이미지 ${index + 1} 선택`}
+                >
+                    <img
+                        src={`data:image/png;base64,${img}`}
+                        alt={`생성된 이미지 ${index + 1}`}
+                        className="w-20 h-20 object-cover"
+                    />
+                </button>
+            ))}
+        </div>
+    </div>
+  );
+};
+
+
 interface ComparisonViewProps {
   originalImage: string | null;
-  generatedImage: string | null;
+  generatedImages: string[] | null;
+  selectedGeneratedImage: string | null;
   isLoading: boolean;
   error: string | null;
   onImageDrop: (file: File) => void;
   onDownload: () => void;
+  onSelectGeneratedImage: (image: string) => void;
 }
 
 interface ImagePanelProps {
@@ -55,7 +89,16 @@ const ImagePanel: React.FC<ImagePanelProps> = ({ title, image, altText, placehol
     </div>
   );
 
-const ComparisonView: React.FC<ComparisonViewProps> = ({ originalImage, generatedImage, isLoading, error, onImageDrop, onDownload }) => {
+const ComparisonView: React.FC<ComparisonViewProps> = ({ 
+    originalImage, 
+    generatedImages, 
+    selectedGeneratedImage, 
+    isLoading, 
+    error, 
+    onImageDrop, 
+    onDownload,
+    onSelectGeneratedImage 
+}) => {
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const dragCounter = useRef(0);
 
@@ -117,7 +160,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ originalImage, generate
       <div className="w-full flex flex-col gap-3">
         <ImagePanel
           title="생성된 이미지"
-          image={generatedImage}
+          image={selectedGeneratedImage}
           altText="생성된 벡터 스타일 이미지"
           placeholder={
               <div className="text-center text-medium-text p-4">
@@ -133,14 +176,23 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ originalImage, generate
             </div>
           )}
         </ImagePanel>
-        {generatedImage && !isLoading && !error && (
+        
+        {generatedImages && generatedImages.length > 0 && !isLoading && !error && (
+            <ThumbnailGallery 
+                images={generatedImages}
+                selectedImage={selectedGeneratedImage}
+                onSelect={onSelectGeneratedImage}
+            />
+        )}
+        
+        {selectedGeneratedImage && !isLoading && !error && (
             <button
                 onClick={onDownload}
-                className="w-full flex items-center justify-center gap-2 bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold py-2.5 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in"
+                className="w-full flex items-center justify-center gap-2 bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold py-2.5 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1 animate-fade-in"
                 disabled={isLoading}
             >
                 <DownloadIcon className="w-5 h-5" />
-                <span>이미지 다운로드</span>
+                <span>선택된 이미지 다운로드</span>
             </button>
         )}
       </div>

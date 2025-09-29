@@ -8,7 +8,8 @@ import MenuBar from './components/MenuBar';
 const App: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [originalMimeType, setOriginalMimeType] = useState<string>('');
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[] | null>(null);
+  const [selectedGeneratedImage, setSelectedGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<VectorStyle | null>(null);
@@ -37,9 +38,11 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setGeneratedImages(null);
+    setSelectedGeneratedImage(null);
 
     try {
-      const result = await generateVectorImage(
+      const results = await generateVectorImage(
         imageToUse,
         mimeToUse,
         style,
@@ -48,7 +51,8 @@ const App: React.FC = () => {
         outline,
         blur,
       );
-      setGeneratedImage(result);
+      setGeneratedImages(results);
+      setSelectedGeneratedImage(results?.[0] || null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
       setError(`생성에 실패했습니다: ${errorMessage}`);
@@ -61,7 +65,8 @@ const App: React.FC = () => {
   const handleImageUpload = async (file: File) => {
     try {
       setError(null);
-      setGeneratedImage(null);
+      setGeneratedImages(null);
+      setSelectedGeneratedImage(null);
       setSelectedStyle(null);
       const { base64, mimeType } = await fileToBase64(file);
       setOriginalImage(base64);
@@ -107,22 +112,26 @@ const App: React.FC = () => {
   };
 
   const handleDownload = useCallback(() => {
-    if (!generatedImage) return;
+    if (!selectedGeneratedImage) return;
     const link = document.createElement('a');
-    link.href = `data:image/png;base64,${generatedImage}`;
+    link.href = `data:image/png;base64,${selectedGeneratedImage}`;
     const filename = `generated-image-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [generatedImage]);
+  }, [selectedGeneratedImage]);
+
+  const handleSelectGeneratedImage = (image: string) => {
+    setSelectedGeneratedImage(image);
+  };
 
 
   return (
     <div className="min-h-screen flex flex-col bg-dark-bg">
       <MenuBar
         onImageUpload={handleImageUpload}
-        generatedImage={generatedImage}
+        generatedImage={selectedGeneratedImage}
         isLoading={isLoading}
         originalImage={originalImage}
         selectedStyle={selectedStyle}
@@ -142,11 +151,13 @@ const App: React.FC = () => {
         <div className="w-full max-w-7xl">
            <ComparisonView
             originalImage={originalImage}
-            generatedImage={generatedImage}
+            generatedImages={generatedImages}
+            selectedGeneratedImage={selectedGeneratedImage}
             isLoading={isLoading}
             error={error}
             onImageDrop={handleImageUpload}
             onDownload={handleDownload}
+            onSelectGeneratedImage={handleSelectGeneratedImage}
           />
         </div>
       </main>

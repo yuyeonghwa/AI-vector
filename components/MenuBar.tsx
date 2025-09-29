@@ -268,7 +268,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
 
                 {/* Line Thickness Menu */}
                 <div className="relative">
-                    <button onClick={() => handleMenuToggle('thickness')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'thickness' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>윤곽선</button>
+                    <button onClick={() => handleMenuToggle('thickness')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'thickness' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>선굵기</button>
                     {activeMenu === 'thickness' && (
                     <DropdownMenu>
                         <div className="p-2">
