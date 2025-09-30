@@ -15,13 +15,11 @@ const App: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<VectorStyle | null>(null);
   const [shadingLevel, setShadingLevel] = useState<ShadingLevel>(ShadingLevel.MEDIUM);
   const [gaussianBlurLevel, setGaussianBlurLevel] = useState<GaussianBlurLevel>(GaussianBlurLevel.MEDIUM);
-  const [lineThickness, setLineThickness] = useState<number>(3);
   const [outlineDistance, setOutlineDistance] = useState<number>(0);
 
 
   const triggerGeneration = useCallback(async (
     style: VectorStyle,
-    thickness: number,
     shading: ShadingLevel,
     outline: number,
     blur: GaussianBlurLevel,
@@ -46,7 +44,7 @@ const App: React.FC = () => {
         imageToUse,
         mimeToUse,
         style,
-        thickness,
+        3, // Hardcoded line thickness
         shading,
         outline,
         blur,
@@ -80,25 +78,21 @@ const App: React.FC = () => {
   const handleStyleSelect = (style: VectorStyle) => {
     setSelectedStyle(style);
     setOutlineDistance(0);
-    triggerGeneration(style, lineThickness, shadingLevel, 0, gaussianBlurLevel);
+    triggerGeneration(style, shadingLevel, 0, gaussianBlurLevel);
   };
   
   const handleShadingLevelSelect = (level: ShadingLevel) => {
     setShadingLevel(level);
     setSelectedStyle(VectorStyle.SKETCH);
     setOutlineDistance(0);
-    triggerGeneration(VectorStyle.SKETCH, lineThickness, level, 0, gaussianBlurLevel);
+    triggerGeneration(VectorStyle.SKETCH, level, 0, gaussianBlurLevel);
   };
 
   const handleGaussianBlurLevelSelect = (level: GaussianBlurLevel) => {
     setGaussianBlurLevel(level);
     setSelectedStyle(VectorStyle.BLACK_AND_WHITE);
     setOutlineDistance(0);
-    triggerGeneration(VectorStyle.BLACK_AND_WHITE, lineThickness, shadingLevel, 0, level);
-  };
-  
-  const handleLineThicknessChange = (thickness: number) => {
-    setLineThickness(thickness);
+    triggerGeneration(VectorStyle.BLACK_AND_WHITE, shadingLevel, 0, level);
   };
   
   const handleOutlineDistanceChange = (distance: number) => {
@@ -107,7 +101,7 @@ const App: React.FC = () => {
 
   const handleEditEnd = () => {
     if (selectedStyle) {
-      triggerGeneration(selectedStyle, lineThickness, shadingLevel, outlineDistance, gaussianBlurLevel);
+      triggerGeneration(selectedStyle, shadingLevel, outlineDistance, gaussianBlurLevel);
     }
   };
 
@@ -140,8 +134,6 @@ const App: React.FC = () => {
         onSelectShadingLevel={handleShadingLevelSelect}
         selectedGaussianBlurLevel={gaussianBlurLevel}
         onSelectGaussianBlurLevel={handleGaussianBlurLevelSelect}
-        lineThickness={lineThickness}
-        onLineThicknessChange={handleLineThicknessChange}
         outlineDistance={outlineDistance}
         onOutlineDistanceChange={handleOutlineDistanceChange}
         onEditEnd={handleEditEnd}

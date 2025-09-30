@@ -1,6 +1,9 @@
 
 export enum VectorStyle {
-  CARTOON = '만화',
+  CARTOON = '기본 만화',
+  GHIBLI = '지브리 스타일',
+  PIXAR = '픽사 스타일',
+  THREE_D = '3D 스타일',
   SKETCH = '스케치',
   BLACK_AND_WHITE = '흑백',
 }

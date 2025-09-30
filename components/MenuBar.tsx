@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { VectorStyle, ShadingLevel, GaussianBlurLevel } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
@@ -14,6 +13,9 @@ import { BlackAndWhiteIcon } from './icons/BlackAndWhiteIcon';
 import { GaussianBlurLightIcon } from './icons/GaussianBlurLightIcon';
 import { GaussianBlurMediumIcon } from './icons/GaussianBlurMediumIcon';
 import { GaussianBlurHeavyIcon } from './icons/GaussianBlurHeavyIcon';
+import { GhibliIcon } from './icons/GhibliIcon';
+import { PixarIcon } from './icons/PixarIcon';
+import { ThreeDIcon } from './icons/ThreeDIcon';
 
 
 // --- Menu Item Components ---
@@ -65,8 +67,6 @@ interface MenuBarProps {
   onSelectShadingLevel: (level: ShadingLevel) => void;
   selectedGaussianBlurLevel: GaussianBlurLevel;
   onSelectGaussianBlurLevel: (level: GaussianBlurLevel) => void;
-  lineThickness: number;
-  onLineThicknessChange: (thickness: number) => void;
   outlineDistance: number;
   onOutlineDistanceChange: (distance: number) => void;
   onEditEnd: () => void;
@@ -75,6 +75,7 @@ interface MenuBarProps {
 
 const MenuBar: React.FC<MenuBarProps> = (props) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [isCartoonSubMenuOpen, setIsCartoonSubMenuOpen] = useState(false);
   const [isSketchSubMenuOpen, setIsSketchSubMenuOpen] = useState(false);
   const [isBlackAndWhiteSubMenuOpen, setIsBlackAndWhiteSubMenuOpen] = useState(false);
   const menuBarRef = useRef<HTMLElement>(null);
@@ -83,6 +84,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
   const handleMenuToggle = (menu: string) => {
     setActiveMenu(prev => (prev === menu ? null : menu));
     if (menu !== 'style') {
+      setIsCartoonSubMenuOpen(false);
       setIsSketchSubMenuOpen(false);
       setIsBlackAndWhiteSubMenuOpen(false);
     }
@@ -90,6 +92,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
   
   const closeMenu = useCallback(() => {
     setActiveMenu(null);
+    setIsCartoonSubMenuOpen(false);
     setIsSketchSubMenuOpen(false);
     setIsBlackAndWhiteSubMenuOpen(false);
   }, []);
@@ -130,6 +133,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
 
   const isControlsDisabled = props.isLoading || !props.originalImage;
   const isLineControlsDisabled = isControlsDisabled || props.selectedStyle === VectorStyle.BLACK_AND_WHITE;
+  const cartoonStyles: VectorStyle[] = [VectorStyle.CARTOON, VectorStyle.GHIBLI, VectorStyle.PIXAR, VectorStyle.THREE_D];
 
   return (
     <header ref={menuBarRef} className="w-full bg-dark-card border-b border-dark-border px-4 py-2 flex items-center justify-between relative z-30">
@@ -169,14 +173,35 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                     <button onClick={() => handleMenuToggle('style')} disabled={isControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'style' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>스타일</button>
                     {activeMenu === 'style' && (
                     <DropdownMenu>
-                        <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.CARTOON); closeMenu(); }}>
-                            <div className="flex items-center gap-2"><CartoonIcon className="w-5 h-5"/><span>{VectorStyle.CARTOON}</span></div>
-                            {props.selectedStyle === VectorStyle.CARTOON && <CheckIcon />}
+                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsCartoonSubMenuOpen(p => !p); setIsSketchSubMenuOpen(false); setIsBlackAndWhiteSubMenuOpen(false); }}>
+                            <div className="flex items-center gap-2"><CartoonIcon className="w-5 h-5"/><span>만화</span></div>
+                            {props.selectedStyle && cartoonStyles.includes(props.selectedStyle) && <CheckIcon />}
                         </MenuItem>
+                        {isCartoonSubMenuOpen && (
+                            <div className="pl-6 animate-fade-in">
+                                <div className="h-px bg-dark-border my-1"/>
+                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.CARTOON); closeMenu(); }}>
+                                    <div className="flex items-center gap-2"><CartoonIcon className="w-5 h-5"/><span>{VectorStyle.CARTOON}</span></div>
+                                    {props.selectedStyle === VectorStyle.CARTOON && <CheckIcon />}
+                                </MenuItem>
+                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.GHIBLI); closeMenu(); }}>
+                                    <div className="flex items-center gap-2"><GhibliIcon className="w-5 h-5"/><span>{VectorStyle.GHIBLI}</span></div>
+                                    {props.selectedStyle === VectorStyle.GHIBLI && <CheckIcon />}
+                                </MenuItem>
+                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.PIXAR); closeMenu(); }}>
+                                    <div className="flex items-center gap-2"><PixarIcon className="w-5 h-5"/><span>{VectorStyle.PIXAR}</span></div>
+                                    {props.selectedStyle === VectorStyle.PIXAR && <CheckIcon />}
+                                </MenuItem>
+                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.THREE_D); closeMenu(); }}>
+                                    <div className="flex items-center gap-2"><ThreeDIcon className="w-5 h-5"/><span>{VectorStyle.THREE_D}</span></div>
+                                    {props.selectedStyle === VectorStyle.THREE_D && <CheckIcon />}
+                                </MenuItem>
+                            </div>
+                        )}
                         
                         <div className="h-px bg-dark-border my-1" />
 
-                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsSketchSubMenuOpen(prev => !prev); setIsBlackAndWhiteSubMenuOpen(false);}}>
+                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsSketchSubMenuOpen(p => !p); setIsCartoonSubMenuOpen(false); setIsBlackAndWhiteSubMenuOpen(false);}}>
                             <div className="flex items-center gap-2"><SketchIcon className="w-5 h-5"/><span>{VectorStyle.SKETCH}</span></div>
                             {props.selectedStyle === VectorStyle.SKETCH && <CheckIcon />}
                         </MenuItem>
@@ -199,7 +224,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                             </div>
                         )}
                         <div className="h-px bg-dark-border my-1" />
-                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsBlackAndWhiteSubMenuOpen(prev => !prev); setIsSketchSubMenuOpen(false); }}>
+                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsBlackAndWhiteSubMenuOpen(p => !p); setIsSketchSubMenuOpen(false); setIsCartoonSubMenuOpen(false); }}>
                             <div className="flex items-center gap-2"><BlackAndWhiteIcon className="w-5 h-5"/><span>{VectorStyle.BLACK_AND_WHITE}</span></div>
                             {props.selectedStyle === VectorStyle.BLACK_AND_WHITE && <CheckIcon />}
                         </MenuItem>
@@ -225,15 +250,15 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                     )}
                 </div>
 
-                {/* Outline Menu */}
+                {/* Sticker Effect Menu */}
                 <div className="relative">
-                    <button onClick={() => handleMenuToggle('outline')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'outline' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>외곽선</button>
+                    <button onClick={() => handleMenuToggle('outline')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'outline' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>스티커 효과</button>
                     {activeMenu === 'outline' && (
                         <DropdownMenu>
                             <div className="p-2">
                                 <div className="px-2">
                                     <div className="flex justify-between items-center text-sm font-medium text-medium-text mb-2">
-                                        <span>거리 값</span>
+                                        <span>여백 크기</span>
                                         <span className="text-light-text font-semibold bg-dark-bg px-2 py-0.5 rounded">
                                             {props.outlineDistance === 0 ? '없음' : props.outlineDistance}
                                         </span>
@@ -250,7 +275,7 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                                             onChange={(e) => props.onOutlineDistanceChange(e.target.valueAsNumber)}
                                             className="w-full h-2 bg-dark-border rounded-lg appearance-none cursor-pointer accent-brand-blue"
                                         />
-                                        <span className="text-xs whitespace-nowrap">멀게</span>
+                                        <span className="text-xs whitespace-nowrap">넓게</span>
                                     </div>
                                 </div>
                                 <div className="mt-4 px-2">
@@ -266,44 +291,6 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                     )}
                 </div>
 
-                {/* Line Thickness Menu */}
-                <div className="relative">
-                    <button onClick={() => handleMenuToggle('thickness')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'thickness' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>선굵기</button>
-                    {activeMenu === 'thickness' && (
-                    <DropdownMenu>
-                        <div className="p-2">
-                            <div className="px-2">
-                                <div className="flex justify-between items-center text-sm font-medium text-medium-text mb-2">
-                                    <span>두께 값</span>
-                                    <span className="text-light-text font-semibold bg-dark-bg px-2 py-0.5 rounded">{props.lineThickness}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-xs whitespace-nowrap">얇게</span>
-                                    <input
-                                    id="line-thickness"
-                                    type="range"
-                                    min="1"
-                                    max="5"
-                                    step="1"
-                                    value={props.lineThickness}
-                                    onChange={(e) => props.onLineThicknessChange(e.target.valueAsNumber)}
-                                    className="w-full h-2 bg-dark-border rounded-lg appearance-none cursor-pointer accent-brand-blue"
-                                    />
-                                    <span className="text-xs whitespace-nowrap">두껍게</span>
-                                </div>
-                            </div>
-                            <div className="mt-4 px-2">
-                                <button
-                                    onClick={handleApplyEdit}
-                                    className="w-full bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold py-2 rounded-md transition-colors"
-                                >
-                                    적용
-                                </button>
-                            </div>
-                        </div>
-                    </DropdownMenu>
-                    )}
-                </div>
             </nav>
         </div>
         <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-purple">
