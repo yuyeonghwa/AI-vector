@@ -20,3 +20,10 @@ export enum GaussianBlurLevel {
   MEDIUM = '중간',
   HEAVY = '강하게',
 }
+
+export enum OutlineLevel {
+  NONE = '없음',
+  THIN = '얇게',
+  MEDIUM = '중간',
+  THICK = '두껍게',
+}

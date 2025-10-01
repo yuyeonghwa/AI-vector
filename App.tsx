@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { VectorStyle, ShadingLevel, GaussianBlurLevel } from './types';
+import { VectorStyle, ShadingLevel, GaussianBlurLevel, OutlineLevel } from './types';
 import { generateVectorImage, fileToBase64 } from './services/geminiService';
 import ComparisonView from './components/ComparisonView';
 import MenuBar from './components/MenuBar';
@@ -15,14 +15,16 @@ const App: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<VectorStyle | null>(null);
   const [shadingLevel, setShadingLevel] = useState<ShadingLevel>(ShadingLevel.MEDIUM);
   const [gaussianBlurLevel, setGaussianBlurLevel] = useState<GaussianBlurLevel>(GaussianBlurLevel.MEDIUM);
-  const [outlineDistance, setOutlineDistance] = useState<number>(0);
+  const [removeBackground, setRemoveBackground] = useState<boolean>(false);
+  const [outlineLevel, setOutlineLevel] = useState<OutlineLevel>(OutlineLevel.NONE);
 
 
   const triggerGeneration = useCallback(async (
     style: VectorStyle,
     shading: ShadingLevel,
-    outline: number,
     blur: GaussianBlurLevel,
+    removeBg: boolean,
+    outline: OutlineLevel,
     imgB64?: string,
     imgMime?: string
   ) => {
@@ -46,8 +48,9 @@ const App: React.FC = () => {
         style,
         3, // Hardcoded line thickness
         shading,
-        outline,
         blur,
+        removeBg,
+        outline
       );
       setGeneratedImages(results);
       setSelectedGeneratedImage(results?.[0] || null);
@@ -66,6 +69,8 @@ const App: React.FC = () => {
       setGeneratedImages(null);
       setSelectedGeneratedImage(null);
       setSelectedStyle(null);
+      setRemoveBackground(false);
+      setOutlineLevel(OutlineLevel.NONE);
       const { base64, mimeType } = await fileToBase64(file);
       setOriginalImage(base64);
       setOriginalMimeType(mimeType);
@@ -77,31 +82,38 @@ const App: React.FC = () => {
 
   const handleStyleSelect = (style: VectorStyle) => {
     setSelectedStyle(style);
-    setOutlineDistance(0);
-    triggerGeneration(style, shadingLevel, 0, gaussianBlurLevel);
+    triggerGeneration(style, shadingLevel, gaussianBlurLevel, removeBackground, outlineLevel);
   };
   
   const handleShadingLevelSelect = (level: ShadingLevel) => {
     setShadingLevel(level);
     setSelectedStyle(VectorStyle.SKETCH);
-    setOutlineDistance(0);
-    triggerGeneration(VectorStyle.SKETCH, level, 0, gaussianBlurLevel);
+    triggerGeneration(VectorStyle.SKETCH, level, gaussianBlurLevel, removeBackground, outlineLevel);
   };
 
   const handleGaussianBlurLevelSelect = (level: GaussianBlurLevel) => {
     setGaussianBlurLevel(level);
     setSelectedStyle(VectorStyle.BLACK_AND_WHITE);
-    setOutlineDistance(0);
-    triggerGeneration(VectorStyle.BLACK_AND_WHITE, shadingLevel, 0, level);
-  };
-  
-  const handleOutlineDistanceChange = (distance: number) => {
-    setOutlineDistance(distance);
+    triggerGeneration(VectorStyle.BLACK_AND_WHITE, shadingLevel, level, removeBackground, outlineLevel);
   };
 
-  const handleEditEnd = () => {
-    if (selectedStyle) {
-      triggerGeneration(selectedStyle, shadingLevel, outlineDistance, gaussianBlurLevel);
+  const handleRemoveBackgroundToggle = () => {
+    const newRemoveBackground = !removeBackground;
+    setRemoveBackground(newRemoveBackground);
+    // 배경 제거를 비활성화하면 스티커 효과도 초기화합니다.
+    const newOutlineLevel = !newRemoveBackground ? OutlineLevel.NONE : outlineLevel;
+    if (!newRemoveBackground) {
+        setOutlineLevel(OutlineLevel.NONE);
+    }
+    if (originalImage && selectedStyle) {
+      triggerGeneration(selectedStyle, shadingLevel, gaussianBlurLevel, newRemoveBackground, newOutlineLevel);
+    }
+  };
+
+  const handleOutlineLevelSelect = (level: OutlineLevel) => {
+    setOutlineLevel(level);
+    if (originalImage && selectedStyle && removeBackground) {
+      triggerGeneration(selectedStyle, shadingLevel, gaussianBlurLevel, removeBackground, level);
     }
   };
 
@@ -134,9 +146,10 @@ const App: React.FC = () => {
         onSelectShadingLevel={handleShadingLevelSelect}
         selectedGaussianBlurLevel={gaussianBlurLevel}
         onSelectGaussianBlurLevel={handleGaussianBlurLevelSelect}
-        outlineDistance={outlineDistance}
-        onOutlineDistanceChange={handleOutlineDistanceChange}
-        onEditEnd={handleEditEnd}
+        removeBackground={removeBackground}
+        onRemoveBackgroundToggle={handleRemoveBackgroundToggle}
+        selectedOutlineLevel={outlineLevel}
+        onSelectOutlineLevel={handleOutlineLevelSelect}
         onDownload={handleDownload}
       />
       <main className="flex-grow flex items-center justify-center p-4 sm:p-6 lg:p-8">

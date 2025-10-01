@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { VectorStyle, ShadingLevel, GaussianBlurLevel } from '../types';
+import { VectorStyle, ShadingLevel, GaussianBlurLevel, OutlineLevel } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
 import { CartoonIcon } from './icons/CartoonIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
@@ -16,7 +17,10 @@ import { GaussianBlurHeavyIcon } from './icons/GaussianBlurHeavyIcon';
 import { GhibliIcon } from './icons/GhibliIcon';
 import { PixarIcon } from './icons/PixarIcon';
 import { ThreeDIcon } from './icons/ThreeDIcon';
-
+import { OutlineNoneIcon } from './icons/OutlineNoneIcon';
+import { OutlineThinIcon } from './icons/OutlineThinIcon';
+import { OutlineMediumIcon } from './icons/OutlineMediumIcon';
+import { OutlineThickIcon } from './icons/OutlineThickIcon';
 
 // --- Menu Item Components ---
 
@@ -53,6 +57,13 @@ const gaussianBlurLevelIcons: { [key in GaussianBlurLevel]: React.FC<{ className
   [GaussianBlurLevel.HEAVY]: GaussianBlurHeavyIcon,
 };
 
+const outlineLevelIcons: { [key in OutlineLevel]: React.FC<{ className?: string }> } = {
+  [OutlineLevel.NONE]: OutlineNoneIcon,
+  [OutlineLevel.THIN]: OutlineThinIcon,
+  [OutlineLevel.MEDIUM]: OutlineMediumIcon,
+  [OutlineLevel.THICK]: OutlineThickIcon,
+};
+
 
 // --- Main MenuBar Component ---
 
@@ -67,9 +78,10 @@ interface MenuBarProps {
   onSelectShadingLevel: (level: ShadingLevel) => void;
   selectedGaussianBlurLevel: GaussianBlurLevel;
   onSelectGaussianBlurLevel: (level: GaussianBlurLevel) => void;
-  outlineDistance: number;
-  onOutlineDistanceChange: (distance: number) => void;
-  onEditEnd: () => void;
+  removeBackground: boolean;
+  onRemoveBackgroundToggle: () => void;
+  selectedOutlineLevel: OutlineLevel;
+  onSelectOutlineLevel: (level: OutlineLevel) => void;
   onDownload: () => void;
 }
 
@@ -126,13 +138,12 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
     closeMenu();
   }
 
-  const handleApplyEdit = () => {
-    props.onEditEnd();
+  const handleSelectOutline = (level: OutlineLevel) => {
+    props.onSelectOutlineLevel(level);
     closeMenu();
-  };
+  }
 
   const isControlsDisabled = props.isLoading || !props.originalImage;
-  const isLineControlsDisabled = isControlsDisabled || props.selectedStyle === VectorStyle.BLACK_AND_WHITE;
   const cartoonStyles: VectorStyle[] = [VectorStyle.CARTOON, VectorStyle.GHIBLI, VectorStyle.PIXAR, VectorStyle.THREE_D];
 
   return (
@@ -250,44 +261,35 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                     )}
                 </div>
 
-                {/* Sticker Effect Menu */}
+                {/* Effects Menu */}
                 <div className="relative">
-                    <button onClick={() => handleMenuToggle('outline')} disabled={isLineControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'outline' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>스티커 효과</button>
-                    {activeMenu === 'outline' && (
-                        <DropdownMenu>
-                            <div className="p-2">
-                                <div className="px-2">
-                                    <div className="flex justify-between items-center text-sm font-medium text-medium-text mb-2">
-                                        <span>여백 크기</span>
-                                        <span className="text-light-text font-semibold bg-dark-bg px-2 py-0.5 rounded">
-                                            {props.outlineDistance === 0 ? '없음' : props.outlineDistance}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <span className="text-xs whitespace-nowrap">없음</span>
-                                        <input
-                                            id="outline-distance"
-                                            type="range"
-                                            min="0"
-                                            max="5"
-                                            step="1"
-                                            value={props.outlineDistance}
-                                            onChange={(e) => props.onOutlineDistanceChange(e.target.valueAsNumber)}
-                                            className="w-full h-2 bg-dark-border rounded-lg appearance-none cursor-pointer accent-brand-blue"
-                                        />
-                                        <span className="text-xs whitespace-nowrap">넓게</span>
-                                    </div>
-                                </div>
-                                <div className="mt-4 px-2">
-                                    <button
-                                        onClick={handleApplyEdit}
-                                        className="w-full bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold py-2 rounded-md transition-colors"
-                                    >
-                                        적용
-                                    </button>
-                                </div>
+                    <button onClick={() => handleMenuToggle('effects')} disabled={isControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'effects' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>효과</button>
+                    {activeMenu === 'effects' && (
+                    <DropdownMenu>
+                        <MenuItem onClick={props.onRemoveBackgroundToggle}>
+                            <span>배경 제거</span>
+                            {props.removeBackground && <CheckIcon />}
+                        </MenuItem>
+                        
+                        {props.removeBackground && (
+                            <div className="animate-fade-in">
+                                <div className="h-px bg-dark-border my-1"/>
+                                <span className="block text-xs font-medium text-medium-text mb-1 px-4 pt-1">스티커 효과</span>
+                                {Object.values(OutlineLevel).map(level => {
+                                    const Icon = outlineLevelIcons[level];
+                                    return (
+                                        <MenuItem key={level} onClick={() => handleSelectOutline(level)}>
+                                            <div className="flex items-center gap-2">
+                                                <Icon className="w-5 h-5" />
+                                                <span>{level}</span>
+                                            </div>
+                                            {props.selectedOutlineLevel === level && <CheckIcon />}
+                                        </MenuItem>
+                                    );
+                                })}
                             </div>
-                        </DropdownMenu>
+                        )}
+                    </DropdownMenu>
                     )}
                 </div>
 
