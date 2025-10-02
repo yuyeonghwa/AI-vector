@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { VectorStyle, ShadingLevel, GaussianBlurLevel, OutlineLevel } from './types';
+import { VectorStyle, ShadingLevel, OutlineLevel, WatercolorVariant } from './types';
 import { generateVectorImage, fileToBase64 } from './services/geminiService';
 import ComparisonView from './components/ComparisonView';
 import MenuBar from './components/MenuBar';
@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<VectorStyle | null>(null);
   const [shadingLevel, setShadingLevel] = useState<ShadingLevel>(ShadingLevel.MEDIUM);
-  const [gaussianBlurLevel, setGaussianBlurLevel] = useState<GaussianBlurLevel>(GaussianBlurLevel.MEDIUM);
+  const [watercolorVariant, setWatercolorVariant] = useState<WatercolorVariant>(WatercolorVariant.SOFT);
   const [removeBackground, setRemoveBackground] = useState<boolean>(false);
   const [outlineLevel, setOutlineLevel] = useState<OutlineLevel>(OutlineLevel.NONE);
 
@@ -22,11 +22,11 @@ const App: React.FC = () => {
   const triggerGeneration = useCallback(async (
     style: VectorStyle,
     shading: ShadingLevel,
-    blur: GaussianBlurLevel,
     removeBg: boolean,
     outline: OutlineLevel,
     imgB64?: string,
-    imgMime?: string
+    imgMime?: string,
+    watercolorVar?: WatercolorVariant
   ) => {
     const imageToUse = imgB64 || originalImage;
     const mimeToUse = imgMime || originalMimeType;
@@ -41,6 +41,8 @@ const App: React.FC = () => {
     setGeneratedImages(null);
     setSelectedGeneratedImage(null);
 
+    const variantToUse = watercolorVar || watercolorVariant;
+
     try {
       const results = await generateVectorImage(
         imageToUse,
@@ -48,9 +50,9 @@ const App: React.FC = () => {
         style,
         3, // Hardcoded line thickness
         shading,
-        blur,
         removeBg,
-        outline
+        outline,
+        variantToUse
       );
       setGeneratedImages(results);
       setSelectedGeneratedImage(results?.[0] || null);
@@ -61,7 +63,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [originalImage, originalMimeType]);
+  }, [originalImage, originalMimeType, watercolorVariant]);
 
   const handleImageUpload = async (file: File) => {
     try {
@@ -71,6 +73,7 @@ const App: React.FC = () => {
       setSelectedStyle(null);
       setRemoveBackground(false);
       setOutlineLevel(OutlineLevel.NONE);
+      setWatercolorVariant(WatercolorVariant.SOFT);
       const { base64, mimeType } = await fileToBase64(file);
       setOriginalImage(base64);
       setOriginalMimeType(mimeType);
@@ -82,19 +85,19 @@ const App: React.FC = () => {
 
   const handleStyleSelect = (style: VectorStyle) => {
     setSelectedStyle(style);
-    triggerGeneration(style, shadingLevel, gaussianBlurLevel, removeBackground, outlineLevel);
+    triggerGeneration(style, shadingLevel, removeBackground, outlineLevel, undefined, undefined, watercolorVariant);
   };
   
   const handleShadingLevelSelect = (level: ShadingLevel) => {
     setShadingLevel(level);
     setSelectedStyle(VectorStyle.SKETCH);
-    triggerGeneration(VectorStyle.SKETCH, level, gaussianBlurLevel, removeBackground, outlineLevel);
+    triggerGeneration(VectorStyle.SKETCH, level, removeBackground, outlineLevel, undefined, undefined, watercolorVariant);
   };
 
-  const handleGaussianBlurLevelSelect = (level: GaussianBlurLevel) => {
-    setGaussianBlurLevel(level);
-    setSelectedStyle(VectorStyle.BLACK_AND_WHITE);
-    triggerGeneration(VectorStyle.BLACK_AND_WHITE, shadingLevel, level, removeBackground, outlineLevel);
+  const handleWatercolorVariantSelect = (variant: WatercolorVariant) => {
+    setWatercolorVariant(variant);
+    setSelectedStyle(VectorStyle.WATERCOLOR);
+    triggerGeneration(VectorStyle.WATERCOLOR, shadingLevel, removeBackground, outlineLevel, undefined, undefined, variant);
   };
 
   const handleRemoveBackgroundToggle = () => {
@@ -106,14 +109,14 @@ const App: React.FC = () => {
         setOutlineLevel(OutlineLevel.NONE);
     }
     if (originalImage && selectedStyle) {
-      triggerGeneration(selectedStyle, shadingLevel, gaussianBlurLevel, newRemoveBackground, newOutlineLevel);
+      triggerGeneration(selectedStyle, shadingLevel, newRemoveBackground, newOutlineLevel, undefined, undefined, watercolorVariant);
     }
   };
 
   const handleOutlineLevelSelect = (level: OutlineLevel) => {
     setOutlineLevel(level);
     if (originalImage && selectedStyle && removeBackground) {
-      triggerGeneration(selectedStyle, shadingLevel, gaussianBlurLevel, removeBackground, level);
+      triggerGeneration(selectedStyle, shadingLevel, removeBackground, level, undefined, undefined, watercolorVariant);
     }
   };
 
@@ -144,8 +147,8 @@ const App: React.FC = () => {
         onSelectStyle={handleStyleSelect}
         selectedShadingLevel={shadingLevel}
         onSelectShadingLevel={handleShadingLevelSelect}
-        selectedGaussianBlurLevel={gaussianBlurLevel}
-        onSelectGaussianBlurLevel={handleGaussianBlurLevelSelect}
+        selectedWatercolorVariant={watercolorVariant}
+        onSelectWatercolorVariant={handleWatercolorVariantSelect}
         removeBackground={removeBackground}
         onRemoveBackgroundToggle={handleRemoveBackgroundToggle}
         selectedOutlineLevel={outlineLevel}

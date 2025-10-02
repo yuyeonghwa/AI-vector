@@ -1,8 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { VectorStyle, ShadingLevel, GaussianBlurLevel, OutlineLevel } from '../types';
+import { VectorStyle, ShadingLevel, OutlineLevel, WatercolorVariant } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
-import { CartoonIcon } from './icons/CartoonIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { UploadIcon } from './icons/UploadIcon';
 import { SketchIcon } from './icons/SketchIcon';
@@ -10,10 +9,6 @@ import { ShadingNoneIcon } from './icons/ShadingNoneIcon';
 import { ShadingLightIcon } from './icons/ShadingLightIcon';
 import { ShadingMediumIcon } from './icons/ShadingMediumIcon';
 import { ShadingHeavyIcon } from './icons/ShadingHeavyIcon';
-import { BlackAndWhiteIcon } from './icons/BlackAndWhiteIcon';
-import { GaussianBlurLightIcon } from './icons/GaussianBlurLightIcon';
-import { GaussianBlurMediumIcon } from './icons/GaussianBlurMediumIcon';
-import { GaussianBlurHeavyIcon } from './icons/GaussianBlurHeavyIcon';
 import { GhibliIcon } from './icons/GhibliIcon';
 import { PixarIcon } from './icons/PixarIcon';
 import { ThreeDIcon } from './icons/ThreeDIcon';
@@ -21,6 +16,9 @@ import { OutlineNoneIcon } from './icons/OutlineNoneIcon';
 import { OutlineThinIcon } from './icons/OutlineThinIcon';
 import { OutlineMediumIcon } from './icons/OutlineMediumIcon';
 import { OutlineThickIcon } from './icons/OutlineThickIcon';
+import { WatercolorIcon } from './icons/WatercolorIcon';
+import { WatercolorSoftIcon } from './icons/WatercolorSoftIcon';
+import { WatercolorVibrantIcon } from './icons/WatercolorVibrantIcon';
 
 // --- Menu Item Components ---
 
@@ -51,10 +49,9 @@ const shadingLevelIcons: { [key in ShadingLevel]: React.FC<{ className?: string 
   [ShadingLevel.HEAVY]: ShadingHeavyIcon,
 };
 
-const gaussianBlurLevelIcons: { [key in GaussianBlurLevel]: React.FC<{ className?: string }> } = {
-  [GaussianBlurLevel.LIGHT]: GaussianBlurLightIcon,
-  [GaussianBlurLevel.MEDIUM]: GaussianBlurMediumIcon,
-  [GaussianBlurLevel.HEAVY]: GaussianBlurHeavyIcon,
+const watercolorVariantIcons: { [key in WatercolorVariant]: React.FC<{ className?: string }> } = {
+  [WatercolorVariant.SOFT]: WatercolorSoftIcon,
+  [WatercolorVariant.VIBRANT]: WatercolorVibrantIcon,
 };
 
 const outlineLevelIcons: { [key in OutlineLevel]: React.FC<{ className?: string }> } = {
@@ -76,8 +73,8 @@ interface MenuBarProps {
   onSelectStyle: (style: VectorStyle) => void;
   selectedShadingLevel: ShadingLevel;
   onSelectShadingLevel: (level: ShadingLevel) => void;
-  selectedGaussianBlurLevel: GaussianBlurLevel;
-  onSelectGaussianBlurLevel: (level: GaussianBlurLevel) => void;
+  selectedWatercolorVariant: WatercolorVariant;
+  onSelectWatercolorVariant: (variant: WatercolorVariant) => void;
   removeBackground: boolean;
   onRemoveBackgroundToggle: () => void;
   selectedOutlineLevel: OutlineLevel;
@@ -87,26 +84,23 @@ interface MenuBarProps {
 
 const MenuBar: React.FC<MenuBarProps> = (props) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [isCartoonSubMenuOpen, setIsCartoonSubMenuOpen] = useState(false);
   const [isSketchSubMenuOpen, setIsSketchSubMenuOpen] = useState(false);
-  const [isBlackAndWhiteSubMenuOpen, setIsBlackAndWhiteSubMenuOpen] = useState(false);
+  const [isWatercolorSubMenuOpen, setIsWatercolorSubMenuOpen] = useState(false);
   const menuBarRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMenuToggle = (menu: string) => {
     setActiveMenu(prev => (prev === menu ? null : menu));
     if (menu !== 'style') {
-      setIsCartoonSubMenuOpen(false);
       setIsSketchSubMenuOpen(false);
-      setIsBlackAndWhiteSubMenuOpen(false);
+      setIsWatercolorSubMenuOpen(false);
     }
   };
   
   const closeMenu = useCallback(() => {
     setActiveMenu(null);
-    setIsCartoonSubMenuOpen(false);
     setIsSketchSubMenuOpen(false);
-    setIsBlackAndWhiteSubMenuOpen(false);
+    setIsWatercolorSubMenuOpen(false);
   }, []);
 
   useEffect(() => {
@@ -133,18 +127,17 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
       closeMenu();
   }
   
-  const handleSelectGaussianBlur = (level: GaussianBlurLevel) => {
-    props.onSelectGaussianBlurLevel(level);
+  const handleSelectWatercolorVariant = (variant: WatercolorVariant) => {
+    props.onSelectWatercolorVariant(variant);
     closeMenu();
   }
-
+  
   const handleSelectOutline = (level: OutlineLevel) => {
     props.onSelectOutlineLevel(level);
     closeMenu();
   }
 
   const isControlsDisabled = props.isLoading || !props.originalImage;
-  const cartoonStyles: VectorStyle[] = [VectorStyle.CARTOON, VectorStyle.GHIBLI, VectorStyle.PIXAR, VectorStyle.THREE_D];
 
   return (
     <header ref={menuBarRef} className="w-full bg-dark-card border-b border-dark-border px-4 py-2 flex items-center justify-between relative z-30">
@@ -184,35 +177,22 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                     <button onClick={() => handleMenuToggle('style')} disabled={isControlsDisabled} className={`px-3 py-1 text-sm rounded ${activeMenu === 'style' ? 'bg-dark-border' : 'hover:bg-dark-border/50'} disabled:opacity-50 disabled:cursor-not-allowed`}>스타일</button>
                     {activeMenu === 'style' && (
                     <DropdownMenu>
-                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsCartoonSubMenuOpen(p => !p); setIsSketchSubMenuOpen(false); setIsBlackAndWhiteSubMenuOpen(false); }}>
-                            <div className="flex items-center gap-2"><CartoonIcon className="w-5 h-5"/><span>만화</span></div>
-                            {props.selectedStyle && cartoonStyles.includes(props.selectedStyle) && <CheckIcon />}
+                        <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.GHIBLI); closeMenu(); }}>
+                            <div className="flex items-center gap-2"><GhibliIcon className="w-5 h-5"/><span>{VectorStyle.GHIBLI}</span></div>
+                            {props.selectedStyle === VectorStyle.GHIBLI && <CheckIcon />}
                         </MenuItem>
-                        {isCartoonSubMenuOpen && (
-                            <div className="pl-6 animate-fade-in">
-                                <div className="h-px bg-dark-border my-1"/>
-                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.CARTOON); closeMenu(); }}>
-                                    <div className="flex items-center gap-2"><CartoonIcon className="w-5 h-5"/><span>{VectorStyle.CARTOON}</span></div>
-                                    {props.selectedStyle === VectorStyle.CARTOON && <CheckIcon />}
-                                </MenuItem>
-                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.GHIBLI); closeMenu(); }}>
-                                    <div className="flex items-center gap-2"><GhibliIcon className="w-5 h-5"/><span>{VectorStyle.GHIBLI}</span></div>
-                                    {props.selectedStyle === VectorStyle.GHIBLI && <CheckIcon />}
-                                </MenuItem>
-                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.PIXAR); closeMenu(); }}>
-                                    <div className="flex items-center gap-2"><PixarIcon className="w-5 h-5"/><span>{VectorStyle.PIXAR}</span></div>
-                                    {props.selectedStyle === VectorStyle.PIXAR && <CheckIcon />}
-                                </MenuItem>
-                                <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.THREE_D); closeMenu(); }}>
-                                    <div className="flex items-center gap-2"><ThreeDIcon className="w-5 h-5"/><span>{VectorStyle.THREE_D}</span></div>
-                                    {props.selectedStyle === VectorStyle.THREE_D && <CheckIcon />}
-                                </MenuItem>
-                            </div>
-                        )}
-                        
+                        <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.PIXAR); closeMenu(); }}>
+                            <div className="flex items-center gap-2"><PixarIcon className="w-5 h-5"/><span>{VectorStyle.PIXAR}</span></div>
+                            {props.selectedStyle === VectorStyle.PIXAR && <CheckIcon />}
+                        </MenuItem>
+                        <MenuItem onClick={() => { props.onSelectStyle(VectorStyle.THREE_D); closeMenu(); }}>
+                            <div className="flex items-center gap-2"><ThreeDIcon className="w-5 h-5"/><span>{VectorStyle.THREE_D}</span></div>
+                            {props.selectedStyle === VectorStyle.THREE_D && <CheckIcon />}
+                        </MenuItem>
+
                         <div className="h-px bg-dark-border my-1" />
 
-                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsSketchSubMenuOpen(p => !p); setIsCartoonSubMenuOpen(false); setIsBlackAndWhiteSubMenuOpen(false);}}>
+                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsWatercolorSubMenuOpen(false); setIsSketchSubMenuOpen(p => !p); }}>
                             <div className="flex items-center gap-2"><SketchIcon className="w-5 h-5"/><span>{VectorStyle.SKETCH}</span></div>
                             {props.selectedStyle === VectorStyle.SKETCH && <CheckIcon />}
                         </MenuItem>
@@ -234,24 +214,23 @@ const MenuBar: React.FC<MenuBarProps> = (props) => {
                                 })}
                             </div>
                         )}
-                        <div className="h-px bg-dark-border my-1" />
-                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsBlackAndWhiteSubMenuOpen(p => !p); setIsSketchSubMenuOpen(false); setIsCartoonSubMenuOpen(false); }}>
-                            <div className="flex items-center gap-2"><BlackAndWhiteIcon className="w-5 h-5"/><span>{VectorStyle.BLACK_AND_WHITE}</span></div>
-                            {props.selectedStyle === VectorStyle.BLACK_AND_WHITE && <CheckIcon />}
+                        <MenuItem onClick={(e) => { e.stopPropagation(); setIsSketchSubMenuOpen(false); setIsWatercolorSubMenuOpen(p => !p); }}>
+                            <div className="flex items-center gap-2"><WatercolorIcon className="w-5 h-5"/><span>{VectorStyle.WATERCOLOR}</span></div>
+                            {props.selectedStyle === VectorStyle.WATERCOLOR && <CheckIcon />}
                         </MenuItem>
-                        {isBlackAndWhiteSubMenuOpen && (
+                        {isWatercolorSubMenuOpen && (
                             <div className="pl-6 animate-fade-in">
                                 <div className="h-px bg-dark-border my-1"/>
-                                <span className="block text-xs font-medium text-medium-text mb-1 px-4 pt-1">가우시안 블러 단계</span>
-                                {Object.values(GaussianBlurLevel).map(level => {
-                                    const Icon = gaussianBlurLevelIcons[level];
+                                <span className="block text-xs font-medium text-medium-text mb-1 px-4 pt-1">수채화 종류</span>
+                                {Object.values(WatercolorVariant).map(variant => {
+                                    const Icon = watercolorVariantIcons[variant];
                                     return (
-                                        <MenuItem key={level} onClick={() => handleSelectGaussianBlur(level)}>
+                                        <MenuItem key={variant} onClick={() => handleSelectWatercolorVariant(variant)}>
                                             <div className="flex items-center gap-2">
                                                 <Icon className="w-5 h-5" />
-                                                <span>{level}</span>
+                                                <span>{variant}</span>
                                             </div>
-                                            {props.selectedGaussianBlurLevel === level && props.selectedStyle === VectorStyle.BLACK_AND_WHITE && <CheckIcon />}
+                                            {props.selectedWatercolorVariant === variant && props.selectedStyle === VectorStyle.WATERCOLOR && <CheckIcon />}
                                         </MenuItem>
                                     );
                                 })}

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { VectorStyle, ShadingLevel, GaussianBlurLevel, OutlineLevel } from '../types';
+import { VectorStyle, ShadingLevel, OutlineLevel, WatercolorVariant } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -31,12 +31,14 @@ const getShadingPrompt = (level: ShadingLevel): string => {
   }
 };
 
-const getGaussianBlurPrompt = (level: GaussianBlurLevel): string => {
-  switch (level) {
-    case GaussianBlurLevel.LIGHT: return "피사체에 미묘하고 부드러운 가우시안 블러를 적용하여 은은하게 부드러운 효과를 줍니다.";
-    case GaussianBlurLevel.MEDIUM: return "피사체에 중간 강도의 가우시안 블러를 적용하여 디테일을 부드럽게 하고 몽환적인 느낌을 줍니다.";
-    case GaussianBlurLevel.HEAVY: return "피사체에 강하고 확산되는 가우시안 블러를 적용하여 영묘하고 추상적인 분위기를 연출합니다.";
-    default: return "";
+const getWatercolorPromptPiece = (variant: WatercolorVariant): string => {
+  switch (variant) {
+    case WatercolorVariant.SOFT:
+      return `주어진 이미지를 섬세한 수채화 그림으로 변환하세요. 부드러운 파스텔 색상과 매끄럽게 혼합되는 유동적인 물감을 사용하세요. 붓 터치는 부드럽게 표현하고 수채화 용지의 질감이 보이도록 하세요.`;
+    case WatercolorVariant.VIBRANT:
+      return `업로드된 이미지를 생동감 넘치는 수채화 그림으로 변환하세요. 대담한 붓 터치, 풍부하고 채도가 높은 색상, 역동적인 색상 혼합을 강조하세요. 예술적인 물감 방울과 튀는 효과를 추가하세요.`;
+    default:
+      return '';
   }
 };
 
@@ -51,28 +53,25 @@ const getStickerEffectPrompt = (level: OutlineLevel): string => {
   }
 };
 
-const getStylePrompt = (style: VectorStyle, shadingLevel: ShadingLevel, gaussianBlurLevel: GaussianBlurLevel, removeBackground: boolean): string => {
+const getStylePrompt = (style: VectorStyle, shadingLevel: ShadingLevel, removeBackground: boolean, watercolorVariant: WatercolorVariant): string => {
   const backgroundInstruction = removeBackground 
     ? "이미지의 주 피사체만 변환하고 배경을 완전히 제거하여 투명하게 만드세요."
     : "이미지 전체(배경 포함)를 요청된 스타일로 변환하세요. 원본 이미지의 구도와 내용을 충실히 재현해야 합니다. 배경을 제거하거나 단색으로 만들지 마세요.";
   const coreStyleInstructions = "원본 사진 속 대상의 주요 특징과 특성을 보존하는 것이 중요합니다. 원본의 구도와 포즈를 유지하세요.";
 
   switch (style) {
-    case VectorStyle.CARTOON:
-      return `깨끗하고 단색의 선과 평면적인 색상을 가진 생동감 있고 현대적인 만화 스타일. 원본 이미지의 색상 팔레트를 충실하게 반영하여 다채로운 결과물을 만드세요. ${coreStyleInstructions} ${backgroundInstruction}`;
     case VectorStyle.GHIBLI:
       return `스튜디오 지브리 애니메이션의 서정적인 스타일로 이미지를 변환하세요. 부드러운 색상 팔레트, 섬세한 선, 그리고 감성적인 분위기를 강조하여, 마치 손으로 그린 듯한 따뜻한 느낌을 살려주세요. 인물의 표정은 순수하고 아련하게 표현하여 지브리 특유의 감성을 담아내세요. ${coreStyleInstructions} ${backgroundInstruction}`;
     case VectorStyle.PIXAR:
-      return `픽사 애니메이션 스튜디오의 3D 캐릭터 스타일로 이미지를 변환하세요. 캐릭터의 눈을 크고 표현력 있게 만들고, 재질의 질감을 섬세하게 묘사해주세요. 극적인 조명 효과를 사용하여 입체감과 생동감을 극대화하여 CGI 애니메이션의 느낌을 살려주세요. ${coreStyleInstructions} ${backgroundInstruction}`;
+      return `"Pixar-like character" 스타일로 이미지를 변환하세요. "expressive eyes"(표현력이 풍부한 눈)를 강조하고, "cinematic lighting"(영화적인 조명)과 "soft lighting"(부드러운 조명)을 조화롭게 사용하여 깊이와 감성을 더해주세요. "high detail"(높은 디테일)로 재질의 질감을 살려 렌더링하세요. ${coreStyleInstructions} ${backgroundInstruction}`;
     case VectorStyle.THREE_D:
       return `생생한 색감과 부드러운 그림자가 특징인 사실적인 3D 렌더링 스타일로 이미지를 변환하세요. 아이소메트릭 뷰(isometric view)를 적용하여 독특한 시점을 표현하고, 매우 정교하고 디테일을 살려주세요. ${coreStyleInstructions} ${backgroundInstruction}`;
     case VectorStyle.SKETCH: {
       const baseSketchPrompt = `대상의 깨끗한 흑백 라인 아트 스케치. 대상의 주요 특징과 형태를 정확하게 보존하세요.`;
       return `${baseSketchPrompt} ${getShadingPrompt(shadingLevel)} ${backgroundInstruction}`;
     }
-    case VectorStyle.BLACK_AND_WHITE: {
-      const basePrompt = "이미지를 톤이 반전되고 채도가 없는 초현실적인 흑백 예술 작품으로 변환하세요.";
-      return `${basePrompt} ${getGaussianBlurPrompt(gaussianBlurLevel)} ${backgroundInstruction}`;
+    case VectorStyle.WATERCOLOR: {
+      return `${getWatercolorPromptPiece(watercolorVariant)} ${coreStyleInstructions} ${backgroundInstruction}`;
     }
     default:
       return `벡터 스타일 이미지. ${backgroundInstruction}`;
@@ -97,9 +96,6 @@ const getEditPrompt = (style: VectorStyle, thickness: number): string => {
       break;
     case 5:
       prompt += " 매우 두껍고 굵은 선을 사용하세요. ";
-      if (style === VectorStyle.CARTOON) {
-        prompt += "대상체의 형태가 왜곡되지 않도록 주의하세요. ";
-      }
       break;
     default:
       prompt += " 중간 두께의 선을 사용하세요. ";
@@ -113,12 +109,12 @@ export const generateVectorImage = async (
   style: VectorStyle,
   thickness: number,
   shadingLevel: ShadingLevel,
-  gaussianBlurLevel: GaussianBlurLevel,
   removeBackground: boolean,
-  outlineLevel: OutlineLevel
+  outlineLevel: OutlineLevel,
+  watercolorVariant: WatercolorVariant
 ): Promise<string[]> => {
   
-  const styleInstruction = getStylePrompt(style, shadingLevel, gaussianBlurLevel, removeBackground);
+  const styleInstruction = getStylePrompt(style, shadingLevel, removeBackground, watercolorVariant);
   const stickerInstruction = removeBackground ? getStickerEffectPrompt(outlineLevel) : "";
 
   const promptSections = [
@@ -126,13 +122,15 @@ export const generateVectorImage = async (
     `### **스타일 지침**\n${styleInstruction}`
   ];
 
-  if (style !== VectorStyle.BLACK_AND_WHITE) {
-    const editInstruction = getEditPrompt(style, thickness);
-    promptSections.push(`### **선 두께 지침**\n${editInstruction}`);
-  }
+  const editInstruction = getEditPrompt(style, thickness);
+  promptSections.push(`### **선 두께 지침**\n${editInstruction}`);
 
   if (stickerInstruction) {
     promptSections.push(`### **효과 지침**\n${stickerInstruction}`);
+  }
+
+  if (style === VectorStyle.WATERCOLOR) {
+    promptSections.push(`### **제외할 스타일**\n결과물은 절대 사실적인 사진(photorealistic, photo)이거나 3D 렌더링(3D render)이어서는 안 됩니다.`);
   }
 
   const outputRules = [
