@@ -1,124 +1,135 @@
 
-import React, { useState, useCallback, useRef } from 'react';
-import { VectorStyle, ShadingLevel, OutlineLevel, WatercolorVariant } from './types';
+import React, { useReducer, useCallback } from 'react';
+import { VectorStyle, ShadingLevel, BackgroundStyle, AppState, AppAction } from './types';
 import { generateVectorImage, fileToBase64 } from './services/geminiService';
 import ComparisonView from './components/ComparisonView';
-import MenuBar from './components/MenuBar';
+
+const initialState: AppState = {
+  originalImage: null,
+  originalMimeType: '',
+  generatedImages: null,
+  selectedGeneratedImage: null,
+  isLoading: false,
+  error: null,
+  selectedStyle: null,
+  shadingLevel: ShadingLevel.MEDIUM,
+  backgroundStyle: BackgroundStyle.ORIGINAL,
+  backgroundColor: '#FFFFFF',
+  isDirty: true,
+};
+
+function appReducer(state: AppState, action: AppAction): AppState {
+  switch (action.type) {
+    case 'SET_IMAGE':
+      return {
+        ...state,
+        originalImage: action.payload.base64,
+        originalMimeType: action.payload.mimeType,
+        generatedImages: null,
+        selectedGeneratedImage: null,
+        selectedStyle: VectorStyle.GHIBLI, // 기본 스타일 설정
+        backgroundStyle: BackgroundStyle.ORIGINAL, // 기본 배경 스타일 설정
+        isDirty: true,
+        error: null,
+      };
+    case 'SET_STYLE':
+      return { ...state, selectedStyle: action.payload, isDirty: true };
+    case 'SET_SHADING_LEVEL':
+      return { ...state, shadingLevel: action.payload, selectedStyle: VectorStyle.SKETCH, isDirty: true };
+    case 'SET_BACKGROUND_STYLE':
+      return { ...state, backgroundStyle: action.payload, isDirty: true };
+    case 'SET_BACKGROUND_COLOR':
+      return { ...state, backgroundColor: action.payload, isDirty: true };
+    case 'SET_SELECTED_GENERATED_IMAGE':
+      return { ...state, selectedGeneratedImage: action.payload };
+    case 'GENERATION_START':
+      return {
+        ...state,
+        isLoading: true,
+        error: null,
+        generatedImages: null,
+        selectedGeneratedImage: null,
+        isDirty: false,
+      };
+    case 'GENERATION_SUCCESS':
+      return {
+        ...state,
+        isLoading: false,
+        generatedImages: action.payload,
+        selectedGeneratedImage: action.payload[0] || null,
+      };
+    case 'GENERATION_FAILURE':
+      return { ...state, isLoading: false, error: `생성에 실패했습니다: ${action.payload}` };
+    case 'SET_ERROR':
+        return { ...state, error: action.payload, isLoading: false };
+    default:
+      return state;
+  }
+}
+
 
 const App: React.FC = () => {
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [originalMimeType, setOriginalMimeType] = useState<string>('');
-  const [generatedImages, setGeneratedImages] = useState<string[] | null>(null);
-  const [selectedGeneratedImage, setSelectedGeneratedImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<VectorStyle | null>(null);
-  const [shadingLevel, setShadingLevel] = useState<ShadingLevel>(ShadingLevel.MEDIUM);
-  const [watercolorVariant, setWatercolorVariant] = useState<WatercolorVariant>(WatercolorVariant.SOFT);
-  const [removeBackground, setRemoveBackground] = useState<boolean>(false);
-  const [outlineLevel, setOutlineLevel] = useState<OutlineLevel>(OutlineLevel.NONE);
-
-
-  const triggerGeneration = useCallback(async (
-    style: VectorStyle,
-    shading: ShadingLevel,
-    removeBg: boolean,
-    outline: OutlineLevel,
-    imgB64?: string,
-    imgMime?: string,
-    watercolorVar?: WatercolorVariant
-  ) => {
-    const imageToUse = imgB64 || originalImage;
-    const mimeToUse = imgMime || originalMimeType;
-
-    if (!imageToUse || !mimeToUse) {
-      setError("먼저 이미지를 업로드해주세요.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    setGeneratedImages(null);
-    setSelectedGeneratedImage(null);
-
-    const variantToUse = watercolorVar || watercolorVariant;
-
-    try {
-      const results = await generateVectorImage(
-        imageToUse,
-        mimeToUse,
-        style,
-        3, // Hardcoded line thickness
-        shading,
-        removeBg,
-        outline,
-        variantToUse
-      );
-      setGeneratedImages(results);
-      setSelectedGeneratedImage(results?.[0] || null);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
-      setError(`생성에 실패했습니다: ${errorMessage}`);
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [originalImage, originalMimeType, watercolorVariant]);
+  const [state, dispatch] = useReducer(appReducer, initialState);
+  const { 
+    originalImage, originalMimeType, generatedImages, selectedGeneratedImage,
+    isLoading, error, selectedStyle, shadingLevel, backgroundStyle, backgroundColor, isDirty
+  } = state;
 
   const handleImageUpload = async (file: File) => {
     try {
-      setError(null);
-      setGeneratedImages(null);
-      setSelectedGeneratedImage(null);
-      setSelectedStyle(null);
-      setRemoveBackground(false);
-      setOutlineLevel(OutlineLevel.NONE);
-      setWatercolorVariant(WatercolorVariant.SOFT);
+      dispatch({ type: 'SET_ERROR', payload: null });
       const { base64, mimeType } = await fileToBase64(file);
-      setOriginalImage(base64);
-      setOriginalMimeType(mimeType);
+      dispatch({ type: 'SET_IMAGE', payload: { base64, mimeType } });
     } catch (err) {
-      setError('이미지를 불러오는 데 실패했습니다. 다른 파일을 시도해 주세요.');
+      dispatch({ type: 'SET_ERROR', payload: '이미지를 불러오는 데 실패했습니다. 다른 파일을 시도해 주세요.' });
       console.error(err);
     }
   };
 
-  const handleStyleSelect = (style: VectorStyle) => {
-    setSelectedStyle(style);
-    triggerGeneration(style, shadingLevel, removeBackground, outlineLevel, undefined, undefined, watercolorVariant);
-  };
+  const handleSelectStyle = useCallback((style: VectorStyle) => {
+    dispatch({ type: 'SET_STYLE', payload: style });
+  }, []);
   
-  const handleShadingLevelSelect = (level: ShadingLevel) => {
-    setShadingLevel(level);
-    setSelectedStyle(VectorStyle.SKETCH);
-    triggerGeneration(VectorStyle.SKETCH, level, removeBackground, outlineLevel, undefined, undefined, watercolorVariant);
-  };
+  const handleShadingLevelSelect = useCallback((level: ShadingLevel) => {
+    dispatch({ type: 'SET_SHADING_LEVEL', payload: level });
+  }, []);
+  
+  const handleSelectBackgroundStyle = useCallback((style: BackgroundStyle) => {
+    dispatch({ type: 'SET_BACKGROUND_STYLE', payload: style });
+  }, []);
 
-  const handleWatercolorVariantSelect = (variant: WatercolorVariant) => {
-    setWatercolorVariant(variant);
-    setSelectedStyle(VectorStyle.WATERCOLOR);
-    triggerGeneration(VectorStyle.WATERCOLOR, shadingLevel, removeBackground, outlineLevel, undefined, undefined, variant);
-  };
+  const handleBackgroundColorChange = useCallback((color: string) => {
+    dispatch({ type: 'SET_BACKGROUND_COLOR', payload: color });
+  }, []);
 
-  const handleRemoveBackgroundToggle = () => {
-    const newRemoveBackground = !removeBackground;
-    setRemoveBackground(newRemoveBackground);
-    // 배경 제거를 비활성화하면 스티커 효과도 초기화합니다.
-    const newOutlineLevel = !newRemoveBackground ? OutlineLevel.NONE : outlineLevel;
-    if (!newRemoveBackground) {
-        setOutlineLevel(OutlineLevel.NONE);
+  const handleGenerateClick = useCallback(async () => {
+    if (!originalImage || !originalMimeType) {
+      dispatch({ type: 'SET_ERROR', payload: "먼저 이미지를 업로드해주세요." });
+      return;
     }
-    if (originalImage && selectedStyle) {
-      triggerGeneration(selectedStyle, shadingLevel, newRemoveBackground, newOutlineLevel, undefined, undefined, watercolorVariant);
+    if (!selectedStyle) {
+      dispatch({ type: 'SET_ERROR', payload: "먼저 스타일을 선택해주세요." });
+      return;
     }
-  };
 
-  const handleOutlineLevelSelect = (level: OutlineLevel) => {
-    setOutlineLevel(level);
-    if (originalImage && selectedStyle && removeBackground) {
-      triggerGeneration(selectedStyle, shadingLevel, removeBackground, level, undefined, undefined, watercolorVariant);
+    dispatch({ type: 'GENERATION_START' });
+
+    try {
+      const results = await generateVectorImage(
+        originalImage,
+        originalMimeType,
+        selectedStyle,
+        shadingLevel,
+        backgroundStyle,
+        backgroundColor,
+      );
+      dispatch({ type: 'GENERATION_SUCCESS', payload: results });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+      dispatch({ type: 'GENERATION_FAILURE', payload: errorMessage });
+      console.error(err);
     }
-  };
+  }, [originalImage, originalMimeType, selectedStyle, shadingLevel, backgroundStyle, backgroundColor]);
 
   const handleDownload = useCallback(() => {
     if (!selectedGeneratedImage) return;
@@ -131,30 +142,18 @@ const App: React.FC = () => {
     document.body.removeChild(link);
   }, [selectedGeneratedImage]);
 
-  const handleSelectGeneratedImage = (image: string) => {
-    setSelectedGeneratedImage(image);
-  };
+  const handleSelectGeneratedImage = useCallback((image: string) => {
+    dispatch({ type: 'SET_SELECTED_GENERATED_IMAGE', payload: image });
+  }, []);
 
 
   return (
     <div className="min-h-screen flex flex-col bg-dark-bg">
-      <MenuBar
-        onImageUpload={handleImageUpload}
-        generatedImage={selectedGeneratedImage}
-        isLoading={isLoading}
-        originalImage={originalImage}
-        selectedStyle={selectedStyle}
-        onSelectStyle={handleStyleSelect}
-        selectedShadingLevel={shadingLevel}
-        onSelectShadingLevel={handleShadingLevelSelect}
-        selectedWatercolorVariant={watercolorVariant}
-        onSelectWatercolorVariant={handleWatercolorVariantSelect}
-        removeBackground={removeBackground}
-        onRemoveBackgroundToggle={handleRemoveBackgroundToggle}
-        selectedOutlineLevel={outlineLevel}
-        onSelectOutlineLevel={handleOutlineLevelSelect}
-        onDownload={handleDownload}
-      />
+       <header className="w-full bg-dark-card border-b border-dark-border px-4 py-3 flex items-center justify-center relative shadow-lg">
+        <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+            AI 스타일러
+        </h1>
+      </header>
       <main className="flex-grow flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-7xl">
            <ComparisonView
@@ -163,9 +162,19 @@ const App: React.FC = () => {
             selectedGeneratedImage={selectedGeneratedImage}
             isLoading={isLoading}
             error={error}
-            onImageDrop={handleImageUpload}
+            onImageUpload={handleImageUpload}
             onDownload={handleDownload}
             onSelectGeneratedImage={handleSelectGeneratedImage}
+            onGenerateClick={handleGenerateClick}
+            isDirty={isDirty}
+            selectedStyle={selectedStyle}
+            onSelectStyle={handleSelectStyle}
+            selectedShadingLevel={shadingLevel}
+            onSelectShadingLevel={handleShadingLevelSelect}
+            selectedBackgroundStyle={backgroundStyle}
+            onSelectBackgroundStyle={handleSelectBackgroundStyle}
+            backgroundColor={backgroundColor}
+            onBackgroundColorChange={handleBackgroundColorChange}
           />
         </div>
       </main>
