@@ -1,4 +1,5 @@
 
+
 // FIX: Import `GenerateContentResponse` for typing API responses.
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { VectorStyle, ShadingLevel, BackgroundStyle } from '../types';
@@ -10,7 +11,7 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Retries an API call with exponential backoff if a rate limit error occurs.
+ * Retries an API call with exponential backoff if a retriable error occurs.
  * @param apiCall The async function to call.
  * @param maxRetries The maximum number of retries.
  * @param initialDelay The initial delay in milliseconds.
@@ -27,18 +28,21 @@ const withRetry = async <T>(
       return await apiCall();
     } catch (error) {
       attempt++;
-      const isRateLimitError =
+      // Check for retriable error codes (rate limiting, server errors)
+      const isRetriableError =
         error instanceof Error &&
-        (error.message.includes('429') ||
-         error.message.includes('RESOURCE_EXHAUStED') ||
+        (error.message.includes('429') || // Rate limit
+         error.message.includes('500') || // Internal Server Error
+         error.message.includes('503') || // Service Unavailable
+         error.message.includes('RESOURCE_EXHAUSTED') ||
          error.message.includes('rate limit'));
 
-      if (isRateLimitError && attempt < maxRetries) {
+      if (isRetriableError && attempt < maxRetries) {
         const delay = initialDelay * Math.pow(2, attempt - 1);
-        console.warn(`Rate limit exceeded. Retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
+        console.warn(`Retriable error occurred. Retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        // Not a rate limit error, or max retries reached, so re-throw.
+        // Not a retriable error, or max retries reached, so re-throw.
         throw error;
       }
     }
@@ -76,22 +80,24 @@ const getStylePrompt = (style: VectorStyle, shadingLevel: ShadingLevel, backgrou
   if (backgroundStyle === BackgroundStyle.COLOR) {
       backgroundInstruction = `원본 이미지의 배경을 제거하고, 지정된 단색 배경(${backgroundColor})으로 교체해주세요. 주 피사체는 중심에 선명하게 유지되어야 합니다. 원본의 구도는 유지하되, 배경만 단색으로 변경해주세요. 매우 중요: 최종 이미지에는 색상표, 색상 견본, UI 요소, 텍스트, 숫자 등이 절대로 포함되어서는 안 됩니다. 오직 스타일이 적용된 피사체와 단색 배경만 있어야 합니다. 만약 원본 이미지의 배경이 이미 투명하다면, 주 피사체에만 스타일을 적용하고 배경은 ${backgroundColor} 색상으로 채워주세요.`;
   } else { // BackgroundStyle.ORIGINAL
-      backgroundInstruction = "만약 원본 이미지에 배경이 있다면, 이미지 전체(배경 포함)를 요청된 스타일로 변환하세요. 원본 이미지의 구도와 전체적인 분위기는 유지하되, 모든 요소를 선택된 스타일로 재해석해주세요. 배경을 제거하거나 단색으로 만들지 마세요. 만약 원본 이미지의 배경이 투명하다면, 주 피사체에만 스타일을 적용하고 투명 배경은 그대로 유지해주세요. 새로운 배경을 추가하지 마세요.";
+      backgroundInstruction = "매우 중요: 원본 이미지의 배경을 절대 제거하거나 무시하지 마세요. 이미지 전체(주 피사체와 배경 모두)를 요청된 스타일로 완전히 변환해야 합니다. 원본의 구도와 요소들은 유지하되, 모든 것을 선택된 스타일로 재해석하여 하나의 통일된 아트워크를 만들어주세요. 배경을 단색으로 만들거나 흐리게 처리해서는 안 됩니다. 배경도 피사체만큼 중요하게 다뤄주세요. 만약 원본 이미지의 배경이 투명하다면, 주 피사체에만 스타일을 적용하고 투명 배경은 그대로 유지해주세요.";
   }
+  
+  const consistencyInstruction = "매우 중요: 이미지에 여러 인물이나 피사체가 있는 경우, 모든 대상에게 예외 없이 동일한 스타일을 일관되게 적용하여 아무도 누락되지 않도록 해야 합니다.";
 
   switch (style) {
     case VectorStyle.GHIBLI:
-      return `원본 사진을 단순 모방하는 것이 아니라, 스튜디오 지브리 애니메이션의 한 장면으로 완전히 재창조해주세요. 지브리 특유의 손으로 그린 듯한 질감, 부드럽고 따뜻한 색감, 서정적이고 꿈꾸는 듯한 분위기를 살려야 합니다. 인물은 감정이 풍부하게 표현되어야 합니다. 만약 원본에 배경이 있다면, 그 배경 또한 디테일이 살아있는 아름다운 수채화 스타일로 그려주세요. 원본의 구도는 참고하되, 사실적인 묘사는 피하고 예술적인 해석을 극대화해주세요. 결과물은 사진이 아닌, 아름다운 애니메이션 아트워크여야 합니다. ${backgroundInstruction}`;
+      return `원본 사진을 단순 모방하는 것이 아니라, 스튜디오 지브리 애니메이션의 한 장면으로 완전히 재창조해주세요. 지브리 특유의 손으로 그린 듯한 질감, 부드럽고 따뜻한 색감, 서정적이고 꿈꾸는 듯한 분위기를 살려야 합니다. 인물은 감정이 풍부하게 표현되어야 합니다. 만약 원본에 배경이 있다면, 그 배경 또한 디테일이 살아있는 아름다운 수채화 스타일로 그려주세요. 원본의 구도는 참고하되, 사실적인 묘사는 피하고 예술적인 해석을 극대화해주세요. 결과물은 사진이 아닌, 아름다운 애니메이션 아트워크여야 합니다. ${consistencyInstruction} ${backgroundInstruction}`;
     case VectorStyle.PIXAR:
-      return `원본 이미지를 픽사 애니메이션 영화에 등장할 법한 매력적인 3D 캐릭터 아트로 완전히 재창조해주세요. 사실적인 묘사는 피하고, 픽사 특유의 과장되고 감정이 풍부한 표현, 크고 생동감 있는 눈, 부드럽고 둥근 형태를 강조해야 합니다. 피부, 머리카락, 의상의 질감은 사실적이기보다는 만지고 싶을 만큼 매력적이고 스타일리시하게 표현해주세요. 따뜻하고 생생한 색감과 영화적인 조명을 사용하여 캐릭터에 생명력을 불어넣으세요. 최종 결과물은 사진이 아닌, 사랑스러운 3D 애니메이션 캐릭터 아트여야 합니다. ${backgroundInstruction}`;
+      return `원본 이미지를 픽사 애니메이션 영화에 등장할 법한 매력적인 3D 캐릭터 아트로 완전히 재창조해주세요. 사실적인 묘사는 피하고, 픽사 특유의 과장되고 감정이 풍부한 표현, 크고 생동감 있는 눈, 부드럽고 둥근 형태를 강조해야 합니다. 피부, 머리카락, 의상의 질감은 사실적이기보다는 만지고 싶을 만큼 매력적이고 스타일리시하게 표현해주세요. 따뜻하고 생생한 색감과 영화적인 조명을 사용하여 캐릭터에 생명력을 불어넣으세요. 최종 결과물은 사진이 아닌, 사랑스러운 3D 애니메이션 캐릭터 아트여야 합니다. ${consistencyInstruction} ${backgroundInstruction}`;
     case VectorStyle.SKETCH: {
       const baseSketchPrompt = `대상의 깨끗한 흑백 라인 아트 스케치. 대상의 주요 특징과 형태를 정확하게 보존하세요.`;
-      return `${baseSketchPrompt} ${getShadingPrompt(shadingLevel)} ${backgroundInstruction}`;
+      return `${baseSketchPrompt} ${getShadingPrompt(shadingLevel)} ${consistencyInstruction} ${backgroundInstruction}`;
     }
     case VectorStyle.ILLUSTRATION:
-        return `원본 이미지를 현대적인 벡터 초상화 일러스트레이션으로 변환해주세요. 이 스타일은 명확하고 깔끔한 라인, 플랫한 셀 셰이딩(단색 그림자), 그리고 분리된 색상 블록을 특징으로 합니다. 그라데이션 효과는 절대 사용하지 마세요. 가장 중요한 것은 원본 이미지의 주요 형태와 구조를 변경하지 않고 그대로 유지하는 것입니다. 최종 결과물은 세련되고 미니멀한 벡터 아트여야 합니다. ${backgroundInstruction}`;
+        return `원본 이미지를 현대적인 벡터 초상화 일러스트레이션으로 변환해주세요. 이 스타일은 명확하고 깔끔한 라인, 플랫한 셀 셰이딩(단색 그림자), 그리고 분리된 색상 블록을 특징으로 합니다. 그라데이션 효과는 절대 사용하지 마세요. 가장 중요한 것은 원본 이미지의 주요 형태와 구조를 변경하지 않고 그대로 유지하는 것입니다. 최종 결과물은 세련되고 미니멀한 벡터 아트여야 합니다. ${consistencyInstruction} ${backgroundInstruction}`;
     default:
-      return `벡터 스타일 이미지. ${backgroundInstruction}`;
+      return `벡터 스타일 이미지. ${consistencyInstruction} ${backgroundInstruction}`;
   }
 };
 
@@ -130,7 +136,7 @@ export const generateVectorImage = async (
   const prompt = promptSections.join('\n\n').trim();
 
   // The 'gemini-2.5-flash-image' model does not support multiple candidates.
-  // To generate 4 images, we will make 4 parallel API calls.
+  // To generate 4 images, we will make 4 API calls.
   const generationRequestPayload = {
     model: 'gemini-2.5-flash-image',
     contents: {
@@ -152,11 +158,15 @@ export const generateVectorImage = async (
   };
 
   const apiCall = () => ai.models.generateContent(generationRequestPayload);
-  // FIX: Explicitly set the generic type for the `withRetry` function to ensure the response object is correctly typed.
-  const imagePromises = Array(4).fill(null).map(() => withRetry<GenerateContentResponse>(apiCall));
 
   try {
-    const responses = await Promise.all(imagePromises);
+    const responses: GenerateContentResponse[] = [];
+    // To avoid rate-limiting errors, generate images sequentially instead of in parallel.
+    for (let i = 0; i < 4; i++) {
+      // FIX: Explicitly set the generic type for the `withRetry` function to ensure the response object is correctly typed.
+      const response = await withRetry<GenerateContentResponse>(apiCall);
+      responses.push(response);
+    }
 
     const images = responses
       .map(response => {
